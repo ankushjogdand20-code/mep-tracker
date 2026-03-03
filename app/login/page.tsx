@@ -4,15 +4,17 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
 
-export default function Login() {
+export default function LoginPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = async (e: any) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     setLoading(true);
+    setErrorMsg("");
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -20,83 +22,73 @@ export default function Login() {
     });
 
     if (error) {
-      alert(error.message);
-    } else {
-      router.push("/");
+      setErrorMsg("Invalid email or password.");
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    router.push("/");
   };
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#0a0f1f",
-      }}
-    >
-      <form
-        onSubmit={handleLogin}
-        style={{
-          background: "#111c3d",
-          padding: "40px",
-          borderRadius: "12px",
-          width: "350px",
-        }}
-      >
-        <h2 style={{ color: "white", marginBottom: "20px" }}>
-          MEP Tracker Login
-        </h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#071C38] via-[#0A254F] to-[#020617]">
 
-        <input
-          type="email"
-          placeholder="Email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-            border: "none",
-          }}
-        />
+      <div className="absolute w-[600px] h-[600px] bg-blue-500/10 blur-3xl rounded-full"></div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "20px",
-            borderRadius: "6px",
-            border: "none",
-          }}
-        />
+      <div className="relative backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl p-12 w-[420px]">
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "10px",
-            borderRadius: "6px",
-            background: "#00c853",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+        <div className="mb-10 text-center">
+          <p className="text-xs tracking-widest text-gray-400">
+            IT’S THOUGHTFUL. IT’S
+          </p>
+          <h1 className="text-4xl font-serif text-white mt-2">
+            Rustomjee
+          </h1>
+          <p className="text-gray-400 mt-4">
+            MEP Executive Command Center
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <label className="text-sm text-gray-300">
+              Corporate Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full mt-2 px-4 py-3 rounded-lg bg-black/40 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-300">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full mt-2 px-4 py-3 rounded-lg bg-black/40 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 transition py-3 rounded-lg font-semibold tracking-wide"
+          >
+            {loading ? "Signing in..." : "Secure Login"}
+          </button>
+
+          {errorMsg && (
+            <p className="text-center text-sm text-red-400">
+              {errorMsg}
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
