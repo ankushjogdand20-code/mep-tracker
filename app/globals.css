@@ -1,26 +1,204 @@
-@import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ========================= */
+/* RESET */
+/* ========================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(135deg, #0f2a47, #0b1f35);
+  font-family: 'Inter', sans-serif;
+  color: white;
+  min-height: 100vh;
+}
+
+/* ========================= */
+/* HEADER */
+/* ========================= */
+.executive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 40px 60px;
+}
+
+.tagline {
+  font-size: 12px;
+  letter-spacing: 3px;
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+
+.executive-header h1 {
+  font-size: 48px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.user-block {
+  text-align: right;
+  font-size: 14px;
+}
+
+.logout-btn {
+  margin-left: 10px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: #ef4444;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.logout-btn:hover {
+  background: #dc2626;
+}
+
+/* ========================= */
+/* FILTER BAR */
+/* ========================= */
+.filter-bar {
+  padding: 0 60px 30px;
+  display: flex;
+  gap: 20px;
+}
+
+.filter-bar select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+}
+
+/* ========================= */
+/* KPI GRID */
+/* ========================= */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 30px;
+  padding: 0 60px 40px;
+}
+
+.metric-card {
+  background: rgba(255,255,255,0.05);
+  padding: 30px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.metric-card p {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.metric-card h2 {
+  font-size: 36px;
+  margin-top: 10px;
+}
+
+.metric-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+
+/* ========================= */
+/* KPI COLOR LOGIC */
+/* ========================= */
+
+/* Overdue */
+.kpi-light {
+  border: 1px solid #ef4444;
+}
+
+.kpi-warning {
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 15px rgba(239,68,68,0.6);
+}
+
+.kpi-critical {
+  border: 2px solid #ef4444;
+  animation: pulse 1.5s infinite;
+}
+
+/* Due 7 days */
+.kpi-yellow {
+  border: 2px solid #facc15;
+  box-shadow: 0 0 15px rgba(250,204,21,0.7);
+}
+
+/* Due 15 days */
+.kpi-amber {
+  border: 2px solid #f97316;
+  box-shadow: 0 0 15px rgba(249,115,22,0.7);
+}
+
+/* Active */
+.kpi-blue {
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 15px rgba(59,130,246,0.7);
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+  50% { box-shadow: 0 0 25px rgba(239,68,68,1); }
+  100% { box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+}
+
+/* ========================= */
+/* CHART SECTION */
+/* ========================= */
+h2 {
+  margin-bottom: 20px;
+}
+
+/* ========================= */
+/* DELIVERABLE SECTION */
+/* ========================= */
+.critical-section {
+  padding: 0 60px 80px;
+}
+
+.critical-section h2 {
+  margin-bottom: 20px;
+}
+
+.critical-row {
+  display: grid;
+  grid-template-columns: 60px 220px 1fr 140px 140px 160px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  transition: 0.2s ease;
+}
+
+.critical-row:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.row-overdue {
+  border-left: 4px solid #ef4444;
+  padding-left: 12px;
+}
+
+.due-overdue {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+select {
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+/* ========================= */
+/* LOADING */
+/* ========================= */
+.loading {
+  padding: 100px;
+  text-align: center;
+  font-size: 20px;
 }

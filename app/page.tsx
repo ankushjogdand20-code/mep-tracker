@@ -1,284 +1,293 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { supabase } from "./lib/supabase";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "./lib/supabase";
 import {
-  BarElement,
-  CategoryScale,
-  LinearScale,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
   Tooltip,
-  Legend,
-  Chart as ChartJS,
-} from "chart.js";
-import { Bar } from "react-chartjs-2";
+  ResponsiveContainer,
+} from "recharts";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
-
-export default function Home() {
+export default function Dashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+
+  const [userEmail, setUserEmail] = useState("");
   const [deliverables, setDeliverables] = useState<any[]>([]);
-  const [animatedMetrics, setAnimatedMetrics] = useState({
-    overdue: 0,
-    due7: 0,
-    due15: 0,
-    active: 0,
-  });
+  const [loading, setLoading] = useState(true);
 
-  const [projectFilter, setProjectFilter] = useState("");
-  const [systemFilter, setSystemFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [overdue, setOverdue] = useState(0);
+  const [due7, setDue7] = useState(0);
+  const [due15, setDue15] = useState(0);
+  const [active, setActive] = useState(0);
 
-  const today = new Date();
+  const [riskData, setRiskData] = useState<any[]>([]);
+  const [systemData, setSystemData] = useState<any[]>([]);
 
-  // AUTH
+  const [projects, setProjects] = useState<string[]>([]);
+  const [systems, setSystems] = useState<string[]>([]);
+
+  const [selectedProject, setSelectedProject] = useState("");
+  const [selectedSystem, setSelectedSystem] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+
   useEffect(() => {
-    const check = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) router.push("/login");
-      else setUser(data.user);
-    };
-    check();
-  }, [router]);
-
-  // FETCH
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("deliverables")
-        .select(`*, projects(name)`);
-      if (data) setDeliverables(data);
-    };
-    fetch();
+    checkSession();
   }, []);
 
-  // FILTER
-  const filtered = useMemo(() => {
-    return deliverables.filter((d) => {
-      return (
-        (projectFilter === "" || d.projects?.name === projectFilter) &&
-        (systemFilter === "" || d.system === systemFilter) &&
-        (statusFilter === "" || d.status === statusFilter)
-      );
-    });
-  }, [deliverables, projectFilter, systemFilter, statusFilter]);
+  async function checkSession() {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      router.push("/login");
+      return;
+    }
+    setUserEmail(data.user.email || "");
+    fetchData();
+  }
 
-  // METRICS
-  const metrics = useMemo(() => {
-    let overdue = 0;
-    let due7 = 0;
-    let due15 = 0;
-    let active = 0;
+  async function fetchData() {
+    const { data } = await supabase
+      .from("deliverables")
+      .select(`*, projects(name)`);
 
-    filtered.forEach((d) => {
-      if (!d.due_date) return;
-      const diff =
-        (new Date(d.due_date).getTime() - today.getTime()) /
-        (1000 * 60 * 60 * 24);
+    const records = data || [];
 
-      if (d.status !== "Completed") {
-        active++;
-        if (diff < 0) overdue++;
-        else if (diff <= 7) due7++;
-        else if (diff <= 15) due15++;
+    setDeliverables(records);
+    calculateMetrics(records);
+
+    setProjects([...new Set(records.map((d) => d.projects?.name))]);
+    setSystems([...new Set(records.map((d) => d.system))]);
+
+    setLoading(false);
+  }
+
+  function calculateMetrics(data: any[]) {
+    const today = new Date();
+    let o = 0, d7 = 0, d15 = 0, a = 0;
+    const projectMap: any = {};
+    const systemMap: any = {};
+
+    data.forEach((item) => {
+      if (item.status !== "Completed") {
+        a++;
+        const due = new Date(item.due_date);
+        const diff =
+          (due.getTime() - today.getTime()) /
+          (1000 * 60 * 60 * 24);
+
+        if (diff < 0) o++;
+        else if (diff <= 7) d7++;
+        else if (diff <= 15) d15++;
+
+        projectMap[item.projects?.name] =
+          (projectMap[item.projects?.name] || 0) + 1;
+
+        systemMap[item.system] =
+          (systemMap[item.system] || 0) + 1;
       }
     });
 
-    return { overdue, due7, due15, active };
-  }, [filtered]);
+    setOverdue(o);
+    setDue7(d7);
+    setDue15(d15);
+    setActive(a);
 
-  // Smooth metric animation
-  useEffect(() => {
-    const duration = 600;
-    const steps = 20;
-    const interval = duration / steps;
+    setRiskData(
+      Object.keys(projectMap).map((k) => ({
+        name: k,
+        value: projectMap[k],
+      }))
+    );
 
-    let count = 0;
-    const timer = setInterval(() => {
-      count++;
-      setAnimatedMetrics({
-        overdue: Math.round((metrics.overdue / steps) * count),
-        due7: Math.round((metrics.due7 / steps) * count),
-        due15: Math.round((metrics.due15 / steps) * count),
-        active: Math.round((metrics.active / steps) * count),
-      });
-      if (count >= steps) clearInterval(timer);
-    }, interval);
-  }, [metrics]);
+    setSystemData(
+      Object.keys(systemMap).map((k) => ({
+        name: k,
+        value: systemMap[k],
+      }))
+    );
+  }
 
-  const getSeverityBorder = (value: number) => {
-    if (value > 15) return "border-l-4 border-red-600";
-    if (value > 8) return "border-l-4 border-amber-500";
-    return "border-l-4 border-emerald-500";
-  };
+  function kpiClass(type: string, value: number) {
+    if (type === "overdue") {
+      if (value >= 20) return "kpi-critical";
+      if (value >= 10) return "kpi-warning";
+      if (value > 0) return "kpi-light";
+    }
 
-  // PROJECT RISK
-  const projectRisk = useMemo(() => {
-    const map: any = {};
-    filtered.forEach((d) => {
-      const name = d.projects?.name || "Unknown";
-      if (!map[name]) map[name] = 0;
-      if (d.status !== "Completed" && new Date(d.due_date) < today) {
-        map[name]++;
-      }
-    });
-    return map;
-  }, [filtered]);
+    if (type === "due7" && value > 10) return "kpi-yellow";
+    if (type === "due15" && value > 20) return "kpi-amber";
+    if (type === "active" && value > 100) return "kpi-blue";
 
-  const chartData = {
-    labels: Object.keys(projectRisk),
-    datasets: [
-      {
-        data: Object.values(projectRisk),
-        backgroundColor: "#16A34A",
-        borderRadius: 8,
-        barPercentage: 0.5,
-      },
-    ],
-  };
+    return "";
+  }
 
-  const priority = useMemo(() => {
-    return filtered
-      .filter((d) => d.status !== "Completed" && d.due_date)
-      .sort(
-        (a, b) =>
-          new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-      )
-      .slice(0, 10);
-  }, [filtered]);
+  async function updateStatus(id: string, status: string) {
+    await supabase
+      .from("deliverables")
+      .update({ status })
+      .eq("id", id);
+    fetchData();
+  }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
+  const filteredDeliverables = deliverables.filter((d) => {
+    return (
+      (!selectedProject || d.projects?.name === selectedProject) &&
+      (!selectedSystem || d.system === selectedSystem) &&
+      (!selectedStatus || d.status === selectedStatus)
+    );
+  });
 
-  const updateStatus = async (id: string, status: string) => {
-    await supabase.from("deliverables").update({ status }).eq("id", id);
-    location.reload();
-  };
-
-  const openProject = (projectName: string) => {
-    router.push(`/project/${encodeURIComponent(projectName)}`);
-  };
+  if (loading) return <div className="loading">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-[#041426] px-12 py-12">
+    <div>
 
-      {/* Sticky Executive Header */}
-      <div className="sticky top-0 z-50 backdrop-blur-md bg-[#041426]/80 pb-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-xs tracking-[0.3em] text-gray-400">
-              IT’S THOUGHTFUL. IT’S
-            </p>
-            <h1 className="text-6xl font-serif mt-2 text-white">
-              Rustomjee
-            </h1>
-            <h2 className="text-xl text-gray-300 mt-6">
-              MEP Executive Command Center
-            </h2>
-          </div>
+      {/* HEADER */}
+      <div className="executive-header">
+        <div>
+          <p className="tagline">IT’S THOUGHTFUL. IT’S</p>
+          <h1>Rustomjee</h1>
+          <p>MEP Executive Command Center</p>
+        </div>
 
-          <div className="text-right">
-            <p className="text-gray-300 text-sm">{user?.email}</p>
-            <button
-              onClick={handleLogout}
-              className="mt-4 bg-red-600 hover:bg-red-700 transition px-6 py-2 rounded-lg text-white"
+        <div className="user-block">
+          <span>{userEmail}</span>
+          <button
+            className="logout-btn"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/login");
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      {/* FILTERS */}
+      <div className="filter-bar">
+        <select onChange={(e) => setSelectedProject(e.target.value)}>
+          <option value="">All Projects</option>
+          {projects.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+
+        <select onChange={(e) => setSelectedSystem(e.target.value)}>
+          <option value="">All Systems</option>
+          {systems.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+
+        <select onChange={(e) => setSelectedStatus(e.target.value)}>
+          <option value="">All Status</option>
+          <option>Not Started</option>
+          <option>In Progress</option>
+          <option>Completed</option>
+        </select>
+      </div>
+
+      {/* KPI CARDS */}
+      <div className="metrics-grid">
+        <div className={`metric-card ${kpiClass("overdue", overdue)}`}>
+          <p>OVERDUE</p>
+          <h2>{overdue}</h2>
+        </div>
+
+        <div className={`metric-card ${kpiClass("due7", due7)}`}>
+          <p>DUE 7 DAYS</p>
+          <h2>{due7}</h2>
+        </div>
+
+        <div className={`metric-card ${kpiClass("due15", due15)}`}>
+          <p>DUE 15 DAYS</p>
+          <h2>{due15}</h2>
+        </div>
+
+        <div className={`metric-card ${kpiClass("active", active)}`}>
+          <p>ACTIVE</p>
+          <h2>{active}</h2>
+        </div>
+      </div>
+
+      {/* CHARTS */}
+      <div style={{ padding: "0 60px 60px" }}>
+        <h2>Project Risk Distribution</h2>
+        <div style={{ height: 300 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={riskData}>
+              <XAxis dataKey="name" stroke="#ccc" />
+              <YAxis stroke="#ccc" />
+              <Tooltip />
+              <Bar dataKey="value" fill="#10b981" barSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{ padding: "0 60px 60px" }}>
+        <h2>System Loading</h2>
+        <div style={{ height: 300 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={systemData}>
+              <XAxis dataKey="name" stroke="#ccc" />
+              <YAxis stroke="#ccc" />
+              <Tooltip />
+              <Bar dataKey="value" fill="#3b82f6" barSize={25} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* DELIVERABLES */}
+      <div className="critical-section">
+        <h2>Critical Deliverables</h2>
+
+        {filteredDeliverables.slice(0, 10).map((item, index) => {
+          const dueDate = new Date(item.due_date);
+          const today = new Date();
+          const diffDays = Math.ceil(
+            (dueDate.getTime() - today.getTime()) /
+            (1000 * 60 * 60 * 24)
+          );
+
+          const isOverdue = diffDays < 0;
+
+          return (
+            <div
+              key={item.id}
+              className={`critical-row ${isOverdue ? "row-overdue" : ""}`}
             >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-[1600px] mx-auto space-y-14 mt-10">
-
-        {/* METRICS */}
-        <div className="grid grid-cols-4 gap-8">
-          <Metric title="Overdue" value={animatedMetrics.overdue} border={getSeverityBorder(metrics.overdue)} />
-          <Metric title="Due 7 Days" value={animatedMetrics.due7} border="border-l-4 border-blue-500" />
-          <Metric title="Due 15 Days" value={animatedMetrics.due15} border="border-l-4 border-indigo-500" />
-          <Metric title="Active" value={animatedMetrics.active} border="border-l-4 border-gray-400" />
-        </div>
-
-        {/* CHART */}
-        <div className="bg-[#0B2545] border border-white/5 rounded-2xl p-10 shadow-[0_30px_80px_rgba(0,0,0,0.6)] hover:-translate-y-1 transition duration-300">
-          <h3 className="mb-8 text-gray-200 text-lg">
-            Project Risk Distribution
-          </h3>
-          <div className="h-[380px]">
-            <Bar
-              data={chartData}
-              options={{
-                plugins: { legend: { display: false } },
-                scales: {
-                  x: {
-                    ticks: { color: "#CBD5E1" },
-                    grid: { display: false },
-                  },
-                  y: {
-                    ticks: { color: "#94A3B8" },
-                    grid: { color: "rgba(255,255,255,0.05)" },
-                  },
-                },
-              }}
-            />
-          </div>
-        </div>
-
-        {/* CRITICAL 10 */}
-        <div className="bg-[#0B2545] border border-white/5 rounded-2xl p-10 shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
-          <h3 className="mb-8 text-gray-200 text-lg">
-            Critical Deliverables (Top 10)
-          </h3>
-
-          <div className="space-y-4">
-            {priority.map((d, i) => (
-              <div
-                key={d.id}
-                className="flex justify-between items-center py-4 border-b border-white/5 text-sm text-gray-200 hover:bg-white/5 transition duration-200 cursor-pointer"
-                onClick={() => openProject(d.projects?.name)}
-              >
-                <div className="w-10 text-gray-400">{i + 1}</div>
-                <div className="flex-1 font-medium text-white">
-                  {d.projects?.name}
-                </div>
-                <div className="flex-1">{d.title}</div>
-                <div className="w-40 text-gray-400">{d.due_date}</div>
-                <div className="w-40">
-                  <select
-                    value={d.status ?? ""}
-                    onClick={(e)=>e.stopPropagation()}
-                    onChange={(e)=>updateStatus(d.id,e.target.value)}
-                    className="bg-[#041426] border border-white/10 px-2 py-1 rounded text-xs text-gray-200"
-                  >
-                    <option>Not Started</option>
-                    <option>In Progress</option>
-                    <option>Completed</option>
-                  </select>
-                </div>
+              <div>{index + 1}</div>
+              <div>{item.projects?.name}</div>
+              <div>{item.title}</div>
+              <div>{dueDate.toLocaleDateString()}</div>
+              <div className={isOverdue ? "due-overdue" : ""}>
+                {isOverdue
+                  ? `${Math.abs(diffDays)} overdue`
+                  : `${diffDays} days`}
               </div>
-            ))}
-          </div>
-        </div>
-
+              <div>
+                <select
+                  value={item.status}
+                  onChange={(e) =>
+                    updateStatus(item.id, e.target.value)
+                  }
+                >
+                  <option>Not Started</option>
+                  <option>In Progress</option>
+                  <option>Completed</option>
+                </select>
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </div>
-  );
-}
 
-function Metric({ title, value, border }: any) {
-  return (
-    <div
-      className={`rounded-2xl bg-[#0B2545] border border-white/5 p-8 shadow-[0_30px_80px_rgba(0,0,0,0.6)] hover:-translate-y-1 transition duration-300 ${border}`}
-    >
-      <p className="text-xs uppercase tracking-[0.2em] text-gray-300 mb-4">
-        {title}
-      </p>
-      <h2 className="text-4xl font-semibold text-white transition-all duration-300">
-        {value}
-      </h2>
     </div>
   );
 }
