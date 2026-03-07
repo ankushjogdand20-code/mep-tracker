@@ -41,6 +41,7 @@ loadData();
 },[]);
 
 
+
 async function loadData(){
 
 const {data}=await supabase
@@ -58,6 +59,7 @@ setSystems([...new Set(records.map(r=>r.system?.toUpperCase()?.trim()))]);
 calculateAnalytics(records);
 
 }
+
 
 
 function calculateAnalytics(records:any[]){
@@ -123,14 +125,17 @@ if(item.status!=="Completed") systemMap[system]++;
 
 });
 
+
 setOverdue(o);
 setDue7(d7);
 setDue15(d15);
 setActive(a);
 
+
 setSystemLoad(
 Object.keys(systemMap).map(s=>({name:s,value:systemMap[s]}))
 );
+
 
 const risk=Object.keys(projectMap).map(p=>{
 
@@ -143,11 +148,13 @@ return {name:p,score};
 
 });
 
+
 setRiskData(risk);
 
 setTopProjects(
 risk.sort((a,b)=>b.score-a.score).slice(0,5)
 );
+
 
 setAgingData([
 {name:"0-7 Days",value:aging.b1},
@@ -157,6 +164,7 @@ setAgingData([
 ]);
 
 }
+
 
 
 function applyFilters(){
@@ -174,6 +182,10 @@ data=data.filter(d=>d.status===selectedStatus);
 
 setFilteredDeliverables(data);
 
+/* 🔥 IMPORTANT FIX → KPIs NOW FOLLOW FILTERS */
+
+calculateAnalytics(data);
+
 }
 
 useEffect(()=>{
@@ -181,11 +193,13 @@ applyFilters();
 },[selectedProject,selectedSystem,selectedStatus]);
 
 
+
 const criticalDeliverables=
 [...filteredDeliverables]
 .filter(d=>d.status!=="Completed")
 .sort((a,b)=>new Date(a.due_date).getTime()-new Date(b.due_date).getTime())
 .slice(0,10);
+
 
 
 function getDelay(date:any){
@@ -198,6 +212,7 @@ const diff=Math.floor((today.getTime()-due.getTime())/(1000*60*60*24));
 return diff>0?diff:0;
 
 }
+
 
 
 return(
@@ -291,11 +306,9 @@ return(
 
 
 
-{/* ANALYTICS 2x2 GRID */}
+{/* ANALYTICS GRID */}
 
 <div className="analytics-grid">
-
-{/* BOX 1 */}
 
 <div className="chart-box">
 
@@ -313,8 +326,6 @@ return(
 </div>
 
 
-{/* BOX 2 */}
-
 <div className="chart-box">
 
 <h2>System Loading</h2>
@@ -331,8 +342,6 @@ return(
 </div>
 
 
-{/* BOX 3 */}
-
 <div className="chart-box">
 
 <h2>Deliverable Aging</h2>
@@ -348,8 +357,6 @@ return(
 
 </div>
 
-
-{/* BOX 4 */}
 
 <div className="chart-box">
 
@@ -407,7 +414,7 @@ return(
 
 <td>{d.projects?.name}</td>
 
-<td>{d.name}</td>
+<td>{d.title}</td>
 
 <td>{d.due_date}</td>
 
