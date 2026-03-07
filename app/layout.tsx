@@ -1,9 +1,8 @@
-import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "MEP Executive Command Center",
-  description: "Rustomjee Dashboard",
+  description: "Rustomjee MEP Monitoring Platform"
 };
 
 export default function RootLayout({

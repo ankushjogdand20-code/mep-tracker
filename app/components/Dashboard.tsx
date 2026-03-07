@@ -1,179 +1,276 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell
+BarChart,
+Bar,
+XAxis,
+YAxis,
+Tooltip,
+ResponsiveContainer
 } from "recharts";
 
-export default function Dashboard() {
-  const statusData = [
-    { name: "Overdue", value: 2 },
-    { name: "Due Soon", value: 1 },
-    { name: "Completed", value: 5 }
-  ];
+export default function Dashboard(){
 
-  const systemLoadData = [
-    { name: "Electrical", value: 8 },
-    { name: "HVAC", value: 5 },
-    { name: "Plumbing", value: 3 }
-  ];
+const [deliverables,setDeliverables]=useState<any[]>([]);
 
-  const portfolioData = [
-    { name: "Residential", value: 6 },
-    { name: "Commercial", value: 3 },
-    { name: "Mixed Use", value: 2 }
-  ];
+const [riskData,setRiskData]=useState<any[]>([]);
+const [systemLoad,setSystemLoad]=useState<any[]>([]);
+const [agingData,setAgingData]=useState<any[]>([]);
+const [topProjects,setTopProjects]=useState<any[]>([]);
 
-  return (
-    <div style={{ padding: "40px" }}>
+const [overdue,setOverdue]=useState(0);
+const [due7,setDue7]=useState(0);
+const [due15,setDue15]=useState(0);
+const [active,setActive]=useState(0);
 
-      {/* KPI ROW */}
-      <div style={kpiRow}>
-        <KPIBox title="OVERDUE" value="2" color="#b91c1c" />
-        <KPIBox title="DUE IN 7 DAYS" value="0" color="#ca8a04" />
-        <KPIBox title="DUE IN 15 DAYS" value="0" color="#1d4ed8" />
-      </div>
+useEffect(()=>{
+loadData();
+},[]);
 
-      <div style={{ ...kpiFullWidth }}>
-        <KPIBox title="ACTIVE DELIVERABLES" value="4" color="#059669" full />
-      </div>
+async function loadData(){
 
-      {/* CHART ROW */}
-      <div style={rowStyle}>
-        <ChartCard title="STATUS DISTRIBUTION">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={statusData}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={95}
-                label
-              >
-                {statusData.map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={["#ef4444", "#facc15", "#22c55e"][index % 3]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
+const {data}=await supabase
+.from("deliverables")
+.select(`
+*,
+projects(name)
+`);
 
-        <ChartCard title="SYSTEM LOAD">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={systemLoadData}>
-              <XAxis dataKey="name" stroke="#ccc" />
-              <YAxis stroke="#ccc" />
-              <Tooltip />
-              <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
+const records=data||[];
 
-      <div style={{ ...chartFullWidth }}>
-        <ChartCard title="PROJECT PORTFOLIO">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={portfolioData}>
-              <XAxis dataKey="name" stroke="#ccc" />
-              <YAxis stroke="#ccc" />
-              <Tooltip />
-              <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-    </div>
-  );
+setDeliverables(records);
+
+calculateAnalytics(records);
+
 }
 
-/* ---------- COMPONENTS ---------- */
+function calculateAnalytics(records:any[]){
 
-function KPIBox({
-  title,
-  value,
-  color,
-  full = false
-}: {
-  title: string;
-  value: string;
-  color: string;
-  full?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        flex: full ? undefined : 1,
-        background: color,
-        padding: "30px",
-        borderRadius: "20px",
-        color: "white",
-        boxShadow: "0 15px 35px rgba(0,0,0,0.5)"
-      }}
-    >
-      <div style={{ opacity: 0.8 }}>{title}</div>
-      <div style={{ fontSize: "40px", marginTop: "10px" }}>{value}</div>
-    </div>
-  );
+const today=new Date();
+
+let o=0;
+let d7=0;
+let d15=0;
+let a=0;
+
+const projectMap:any={};
+const systemMap:any={};
+
+const aging={
+b1:0,
+b2:0,
+b3:0,
+b4:0
+};
+
+records.forEach(item=>{
+
+const due=new Date(item.due_date);
+const diff=Math.floor((due.getTime()-today.getTime())/(1000*60*60*24));
+
+if(item.status!=="Completed"){
+
+a++;
+
+if(diff<0){
+
+o++;
+
+const overdue=Math.abs(diff);
+
+if(overdue<=7) aging.b1++;
+else if(overdue<=15) aging.b2++;
+else if(overdue<=30) aging.b3++;
+else aging.b4++;
+
+}
+else if(diff<=7) d7++;
+else if(diff<=15) d15++;
+
 }
 
-function ChartCard({
-  title,
-  children
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={premiumCard}>
-      <h3 style={titleStyle}>{title}</h3>
-      {children}
-    </div>
-  );
+const project=item.projects?.name;
+
+if(project){
+
+if(!projectMap[project]){
+projectMap[project]={o:0,d7:0,d15:0};
 }
 
-/* ---------- STYLES ---------- */
+if(diff<0) projectMap[project].o++;
+else if(diff<=7) projectMap[project].d7++;
+else if(diff<=15) projectMap[project].d15++;
 
-const kpiRow = {
-  display: "flex",
-  gap: "30px"
-};
+}
 
-const kpiFullWidth = {
-  marginTop: "30px"
-};
+const system=item.system?.toUpperCase()?.trim();
 
-const rowStyle = {
-  display: "flex",
-  gap: "30px",
-  marginTop: "40px"
-};
+if(system){
 
-const chartFullWidth = {
-  marginTop: "40px"
-};
+if(!systemMap[system]) systemMap[system]=0;
 
-const premiumCard = {
-  flex: 1,
-  background: "linear-gradient(145deg, #0f1e3a, #0b1730)",
-  padding: "30px",
-  borderRadius: "20px",
-  color: "white",
-  boxShadow: "0 15px 35px rgba(0,0,0,0.6)"
-};
+if(item.status!=="Completed") systemMap[system]++;
 
-const titleStyle = {
-  marginBottom: "20px",
-  letterSpacing: "1px",
-  fontWeight: 500
-};
+}
+
+});
+
+setOverdue(o);
+setDue7(d7);
+setDue15(d15);
+setActive(a);
+
+setSystemLoad(
+Object.keys(systemMap).map(s=>({
+name:s,
+value:systemMap[s]
+}))
+);
+
+const risk=Object.keys(projectMap).map(p=>{
+
+const score=
+projectMap[p].o*3+
+projectMap[p].d7*2+
+projectMap[p].d15*1;
+
+return {name:p,score};
+
+});
+
+setRiskData(risk);
+
+setTopProjects(
+risk.sort((a,b)=>b.score-a.score).slice(0,5)
+);
+
+setAgingData([
+{name:"0-7 Days",value:aging.b1},
+{name:"8-15 Days",value:aging.b2},
+{name:"16-30 Days",value:aging.b3},
+{name:"30+ Days",value:aging.b4}
+]);
+
+}
+
+return(
+
+<div className="dashboard-container">
+
+{/* KPI */}
+
+<div className="metrics-grid">
+
+<div className="metric-card kpi-critical">
+<p>OVERDUE</p>
+<h2>{overdue}</h2>
+</div>
+
+<div className="metric-card kpi-yellow">
+<p>DUE 7 DAYS</p>
+<h2>{due7}</h2>
+</div>
+
+<div className="metric-card kpi-amber">
+<p>DUE 15 DAYS</p>
+<h2>{due15}</h2>
+</div>
+
+<div className="metric-card kpi-blue">
+<p>ACTIVE</p>
+<h2>{active}</h2>
+</div>
+
+</div>
+
+
+{/* MAIN CHARTS */}
+
+<div className="analytics-grid">
+
+<div className="chart-box">
+
+<h2>Project Risk Distribution</h2>
+
+<ResponsiveContainer width="100%" height={300}>
+
+<BarChart data={riskData}>
+<XAxis dataKey="name"/>
+<YAxis/>
+<Tooltip/>
+<Bar dataKey="score" fill="#16a34a" barSize={30}/>
+</BarChart>
+
+</ResponsiveContainer>
+
+</div>
+
+
+<div className="chart-box">
+
+<h2>System Loading</h2>
+
+<ResponsiveContainer width="100%" height={300}>
+
+<BarChart data={systemLoad}>
+<XAxis dataKey="name"/>
+<YAxis/>
+<Tooltip/>
+<Bar dataKey="value" fill="#3b82f6" barSize={24}/>
+</BarChart>
+
+</ResponsiveContainer>
+
+</div>
+
+</div>
+
+
+{/* ANALYTICS */}
+
+<div className="analytics-grid">
+
+<div className="chart-box">
+
+<h2>Deliverable Aging</h2>
+
+<ResponsiveContainer width="100%" height={300}>
+
+<BarChart data={agingData}>
+<XAxis dataKey="name"/>
+<YAxis/>
+<Tooltip/>
+<Bar dataKey="value" fill="#ef4444" barSize={24}/>
+</BarChart>
+
+</ResponsiveContainer>
+
+</div>
+
+
+<div className="chart-box">
+
+<h2>Top Risk Projects</h2>
+
+<ul className="risk-list">
+
+{topProjects.map((p,i)=>(
+<li key={i}>
+{p.name} — Risk Score {p.score}
+</li>
+))}
+
+</ul>
+
+</div>
+
+</div>
+
+</div>
+
+);
+
+}
